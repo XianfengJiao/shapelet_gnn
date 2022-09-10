@@ -1,1 +1,2 @@
 from .shapelet_trainer import Shapelet_Trainer
+from .motality_trainer import Motality_Trainer

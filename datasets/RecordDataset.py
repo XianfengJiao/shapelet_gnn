@@ -10,13 +10,16 @@ from torch.utils.data import Dataset
 
 
 class RecordDataset(Dataset):
-    def __init__(self, input_data, label_data, data_dir, type, fold, topk=5):
-        preprocessed_path = os.path.join(data_dir, 'fold-'+str(fold), type+'_record_'+'preprocessed.pkl')
+    def __init__(self, input_data, label_data, data_dir, type, topk=5):
+        preprocessed_path = os.path.join(data_dir, type+'_record_'+'preprocessed.pkl')
         os.makedirs(os.path.dirname(preprocessed_path), exist_ok=True)
+        
+        input_data, label_data = self.filter_data(input_data, label_data)
         
         if not os.path.isfile(preprocessed_path):
             patient_size = len(input_data['f0'])
-            record_preprocessed = [[[] for _ in range(4)] for _ in range(patient_size)]
+            feature_size = len(input_data)
+            record_preprocessed = [[[] for _ in range(feature_size)] for _ in range(patient_size)]
             # feature_size x patient_size x record_size x shapelet_size
             for key, x in input_data.items():
                 i = int(key.replace('f',''))
@@ -37,6 +40,13 @@ class RecordDataset(Dataset):
     
     def __getitem__(self, idx):
         return self.data[idx]
+    
+    def filter_data(self, data, label):
+        label = [ll for (ll, dd) in zip(label, data['f0']) if len(dd) > 0]
+        for key in data.keys():
+            data[key] = [dd for dd in data[key] if len(dd) > 0]
+        
+        return data, label
     
     def process_data_per_patient(self, data, topk=5):
         # data: record_size x shapelet_size

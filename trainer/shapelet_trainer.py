@@ -104,8 +104,8 @@ class Shapelet_Trainer(object):
         
         if eval_metric[self.monitor] > self.best_metric:
             self.best_metric = eval_metric[self.monitor]
-            self.best_metric_graph_model_path = os.path.join(self.save_path, 'best_' + self.monitor +'_graph_model.pth')
-            self.best_metric_motality_model_path = os.path.join(self.save_path, 'best_' + self.monitor +'_motality_model.pth')
+            self.best_metric_graph_model_path = os.path.join(self.save_path, 'best_graph_model.pth')
+            self.best_metric_motality_model_path = os.path.join(self.save_path, 'best_motality_model.pth')
             torch.save(self.graph_model.state_dict(), self.best_metric_graph_model_path)
             torch.save(self.motality_model.state_dict(), self.best_metric_motality_model_path)
             self.metric_all = eval_metric

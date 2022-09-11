@@ -37,7 +37,7 @@ def build_graph(graph_path, node_dim=8):
     node_size=len(evo_g['f0'])
     for i in range(node_type_size - 1):
         for j in range(i+1, node_type_size):
-            select_co_occu_g = co_occu_g[i*50:(i+1)*50, j*50:(j+1)*50]
+            select_co_occu_g = co_occu_g[i*node_size:(i+1)*node_size, j*node_size:(j+1)*node_size]
             edge_index_temp = sp.coo_matrix(select_co_occu_g)
             weights = edge_index_temp.data
             indices = np.vstack((edge_index_temp.row, edge_index_temp.col))

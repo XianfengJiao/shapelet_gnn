@@ -148,9 +148,6 @@ def main(args):
     partial_work = partial(gen_shapelets_process, data=data, data_all=data_all,pdid=pdid, dist=dist, prefix=prefix, args=args)
     results = pool.map(partial_work, selected_feature)
     
-    
-    
-    
     return
 
 if __name__ == '__main__':

@@ -25,7 +25,7 @@ from trainer import Motality_Trainer
 from datasets import PatientDataset
 from utils.model_utils import load_model
 
-def train(args):
+def train(trainer, train_loader, valid_loader, args):
     # TODO: 把训练代码写到这里
     pass
 
@@ -69,6 +69,7 @@ def main(args):
         
         # ----------------- Instantiate Model --------------------------
         model = load_model(args.model_name, args)
+        # ----------------- Instantiate Trainer ------------------------
         trainer = Motality_Trainer(
             train_loader=train_loader,
             valid_loader=valid_loader,
@@ -83,6 +84,7 @@ def main(args):
             monitor=args.monitor,
             save_path=os.path.join(args.ckpt_save_path, 'kfold-'+str(i))
         )
+        # ----------------- Generate Shapelet ------------------------
         if args.gen_shapelet:
             pretrain_model_path_fold = os.path.join(args.pretrain_model_path, 'kfold-'+str(i), 'best_model.pth')
             model.load_state_dict(torch.load(pretrain_model_path_fold))
@@ -94,14 +96,16 @@ def main(args):
                                  save_path=trainer.log_dir)
             continue
         
+        # ----------------- Start Training ------------------------
         print('#'*20,"kfold-{}: starting training...".format(i),'#'*20)
         for epoch in range(1, args.epoch + 1):
             continue_train = trainer.train_epoch(epoch)
             if not continue_train:
                 break
-        
         copyfile(trainer.best_metric_model_path, trainer.best_metric_model_path.replace('.pth', '_'+args.monitor+'_'+str(trainer.best_metric)+'.pth'))
         
+        
+        # ----------------- Save Metrics -------------------------
         for key, value in trainer.metric_all.items():
             if key not in kfold_metrics:
                 kfold_metrics[key] = [value]
@@ -109,7 +113,9 @@ def main(args):
                 kfold_metrics[key].append(value)
         
         print('#'*20,"kfold-{}: end training".format(i),'#'*20)
+        
     
+    # ----------------- Print Metrics ------------------------
     for key, value in kfold_metrics.items():
         print('%s: %.4f(%.4f)'%(key, np.mean(value), np.std(value)))
 

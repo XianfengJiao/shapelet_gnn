@@ -17,6 +17,7 @@ import time
 from utils.metric_utils import print_metrics_binary
 from utils.data_utils import get_all_segment,get_selected_segment_id,get_selected_segment,vis_kmedoids
 from pathos.multiprocessing import ProcessingPool as Pool
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 class Motality_Trainer(object):
     def __init__(
@@ -35,15 +36,27 @@ class Motality_Trainer(object):
         loss='bce',
         fold=0,
         pretrain_ckpt_path=None,
+        ddp=False,
+        local_rank=0,
+        dist=None,
     ):
         self.device = device
+        self.ddp = ddp
+        self.dist = dist
         self.early_stop = early_stop
         self.no_lift_count = 0
         self.train_loader = train_loader
         self.valid_loader = valid_loader
         self.monitor = monitor
         self.save_path = save_path
-        self.model = model.to(self.device)
+        self.loss_fn = self.configure_loss(loss)
+        
+        if self.ddp:
+            self.model = model.to(local_rank)
+            self.model = DDP(self.model, device_ids=[local_rank], output_device=local_rank, find_unused_parameters=True)
+            self.loss_fn.to(local_rank)
+        else:
+            self.model = model.to(self.device)
         self.batch_size = batch_size
         self.num_epochs = num_epochs
         self.pretrain_ckpt_path = pretrain_ckpt_path
@@ -52,8 +65,8 @@ class Motality_Trainer(object):
         self.lr = lr
         self.fold=fold
         self.best_motality_model_path = None
-        self.loss_fn = self.configure_loss(loss)
         self.optimizer = self.configure_optimizer()
+        
         
         os.makedirs(self.log_dir, exist_ok=True)
         self.tensorwriter = SummaryWriter(log_dir)
@@ -65,6 +78,8 @@ class Motality_Trainer(object):
     
     def train_epoch(self, epoch):
         self.model.train()
+        if self.ddp:
+            self.train_loader.sampler.set_epoch(epoch)
         train_iterator = tqdm(
             self.train_loader, desc="Fold {}: Epoch {}/{}".format(self.fold, epoch, self.num_epochs), leave=False
         )
@@ -78,28 +93,36 @@ class Motality_Trainer(object):
             loss = self.loss_fn(pred, y)
             loss.backward()
             self.optimizer.step()
+            if self.ddp:
+                self.dist.all_reduce(loss, op=self.dist.ReduceOp.SUM)
+                loss /= self.dist.get_world_size()
             loss_epoch += loss.item()
             
         loss_epoch /= len(self.train_loader)
         print(f"Fold {self.fold}: Epoch {epoch}:")
         print(f"Train Loss: {loss_epoch:.4f}")
         self.tensorwriter.add_scalar("train_loss/epoch", loss_epoch, epoch)
-        eval_loss, eval_metric = self.evaluate(epoch)
         
-        if eval_metric[self.monitor] > self.best_metric:
-            self.best_metric = eval_metric[self.monitor]
-            self.best_metric_model_path = os.path.join(self.save_path, 'best_model.pth')
-            torch.save(self.model.state_dict(), self.best_metric_model_path)
-            self.metric_all = eval_metric
-            self.no_lift_count = 0
-        else:
-            self.no_lift_count += 1
-            if self.no_lift_count > self.early_stop:
-                return False
+        if self.dist.get_rank() == 0 or not self.ddp:
+            eval_loss, eval_metric = self.evaluate(epoch)
+            
+            if eval_metric[self.monitor] > self.best_metric:
+                self.best_metric = eval_metric[self.monitor]
+                self.best_metric_model_path = os.path.join(self.save_path, 'best_model.pth')
+                torch.save(self.model.state_dict(), self.best_metric_model_path)
+                self.metric_all = eval_metric
+                self.no_lift_count = 0
+            else:
+                self.no_lift_count += 1
+                if self.no_lift_count > self.early_stop:
+                    return False
+            
+            print('-'*100)
+            print('Epoch {}, best eval {}: {}'.format(epoch, self.monitor, self.best_metric))
+            print('-'*100)
         
-        print('-'*100)
-        print('Epoch {}, best eval {}: {}'.format(epoch, self.monitor, self.best_metric))
-        print('-'*100)
+        if self.ddp:
+            self.dist.barrier()
         return True
     
     __call__ = train_epoch

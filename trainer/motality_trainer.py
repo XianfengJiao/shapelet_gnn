@@ -103,7 +103,7 @@ class Motality_Trainer(object):
         print(f"Train Loss: {loss_epoch:.4f}")
         self.tensorwriter.add_scalar("train_loss/epoch", loss_epoch, epoch)
         
-        if self.dist.get_rank() == 0 or not self.ddp:
+        if not self.ddp or self.dist.get_rank() == 0:
             eval_loss, eval_metric = self.evaluate(epoch)
             
             if eval_metric[self.monitor] > self.best_metric:
@@ -121,8 +121,6 @@ class Motality_Trainer(object):
             print('Epoch {}, best eval {}: {}'.format(epoch, self.monitor, self.best_metric))
             print('-'*100)
         
-        if self.ddp:
-            self.dist.barrier()
         return True
     
     __call__ = train_epoch

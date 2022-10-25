@@ -13,7 +13,7 @@ from utils.common_utils import clones
 
 
 class MC_GRU_motality(pl.LightningModule):
-    def __init__(self, input_dim=17, hidden_dim=32, d_model=32,  MHD_num_head=4, d_ff=64, output_dim=1, keep_prob=0.5):
+    def __init__(self, input_dim=17, demo_dim=4, hidden_dim=32, d_model=32,  MHD_num_head=4, d_ff=64, output_dim=1, keep_prob=0.5):
         super().__init__()
 
         # hyperparameters
@@ -25,13 +25,13 @@ class MC_GRU_motality(pl.LightningModule):
         self.d_ff = d_ff
         self.output_dim = output_dim
         self.keep_prob = keep_prob
+        self.demo_dim = demo_dim
 
         # layers
         self.GRUs = clones(nn.GRU(1, self.hidden_dim, batch_first = True), self.input_dim)
 
         self.dim_squeeze = nn.Linear(self.hidden_dim*(self.input_dim+1), self.hidden_dim)
-        self.demo_proj_main = nn.Linear(4, self.hidden_dim)
-        self.demo_proj = nn.Linear(4, self.hidden_dim)
+        self.demo_proj = nn.Linear(self.demo_dim, self.hidden_dim)
         self.output = nn.Linear(self.hidden_dim, self.output_dim)
 
         self.dropout = nn.Dropout(p = 1 - self.keep_prob)
@@ -41,7 +41,7 @@ class MC_GRU_motality(pl.LightningModule):
         self.relu=nn.ReLU()
 
     def forward(self, input, lens, demo_input):
-        demo_main = self.tanh(self.demo_proj_main(demo_input)).unsqueeze(1)# b hidden_dim
+        demo_main = self.tanh(self.demo_proj(demo_input)).unsqueeze(1)# b hidden_dim
         
         batch_size = input.size(0)
         time_step = input.size(1)

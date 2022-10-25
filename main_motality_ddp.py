@@ -65,7 +65,7 @@ def main(args):
     for i, (train_set, val_set) in enumerate(kfold.split(x, y)):
         if args.just_one_fold and i > 0:
             break
-        if args.fix_fold > 0 and i != args.fix_fold:
+        if args.fix_fold >= 0 and i != args.fix_fold:
             continue
         train_dataset = PatientDataset(
             x_data=np.array(x)[train_set],
@@ -82,7 +82,7 @@ def main(args):
             static_data=np.array(static)[val_set],
             pdid_data=np.array(pdid)[val_set],
         )
-        valid_loader = DataLoader(valid_dataset, batch_size=4, shuffle=False, collate_fn=valid_dataset.collate_fn)
+        valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=False, collate_fn=valid_dataset.collate_fn)
         
         # ----------------- Instantiate Model --------------------------
         model = load_model(args.model_name, args)
@@ -155,11 +155,13 @@ if __name__ == '__main__':
     parser.add_argument('--cluster_num', default=10, type=int)
     parser.add_argument('--threshold_rate', default=98, type=int)
     parser.add_argument('--early_stop', default=10, type=int)
+    parser.add_argument('--layer_num', default=3, type=int)
+    parser.add_argument('--num_channels', default='4,8,16,32', type=str)
+    parser.add_argument('--monitor', default='auroc', type=str)
     parser.add_argument('--kernel_size', default=5, type=int)
     parser.add_argument('--input_dim', default=17, type=int)
     parser.add_argument('--demo_dim', default=5, type=int)
     parser.add_argument('--model_name', default='Multi_ConvTransformer_clstoken', type=str)
-    parser.add_argument('--monitor', default='auroc', type=str)
     parser.add_argument("--pretrain_model_path", default='/home/jxf/code/Shapelet_GNN/checkpoints/motality/20220911-01_Multi_ConvTransformer_clstoken_dropout5_lr5_kernel-5_auroc', type=str)
     parser.add_argument("--gen_shapelet", action='store_true', help="only to generate shapelet.",)
     parser.add_argument("--fix_fold",  default=-1, type=int)
@@ -173,4 +175,7 @@ if __name__ == '__main__':
     parser.add_argument('--keep_prob', default=0.5, type=float)
     parser.add_argument('--batch_size', default=16, type=int)
     args = parser.parse_args()
+    
+    args.num_channels = [int(n) for n in args.num_channels.split(',')]
+    
     main(args)

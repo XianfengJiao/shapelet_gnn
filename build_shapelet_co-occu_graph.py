@@ -89,7 +89,7 @@ def main(args):
 
 if __name__ == '__main__':
     parser = ArgumentParser()
-    parser.add_argument('--sdist_dir', default='/home/jxf/code/pytorch-lightning-med/med-seq/graph_utils/gen_graph_data/test_sdist', type=str)
+    parser.add_argument('--sdist_dir', default='/home/jxf/code/Shapelet_GNN/input/graph_data/20220928-12_ckd_Multi_ConvGRU_attn_keep1_lr5e-4_b64_k4_c16,32,64_auprc/layer-2/offset-0_segL-9_dist-softdtw_percentile-10/kfold-0', type=str)
     parser.add_argument('--percentile', default=5, type=float)
     args = parser.parse_args()
     main(args)

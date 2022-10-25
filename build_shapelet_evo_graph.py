@@ -158,7 +158,7 @@ if __name__ == '__main__':
     parser.add_argument('--soft_dtw_gamma', default=0.5, type=float)
     parser.add_argument('--offset', default=0, type=int)
     parser.add_argument('--data_path', default='/home/jxf/code/Shapelet_GNN/logs/motality/20220911-01_Multi_ConvTransformer_clstoken_dropout5_lr5_kernel-5_auroc', type=str)
-    parser.add_argument('--ori_data_path', default='/home/jxf/code/Shapelet_GNN/input/shapelet_filter_0908', type=str)
+    parser.add_argument('--ori_data_path', default='/home/jxf/code/Shapelet_GNN/input/ckd_shapelet_filter_0908', type=str)
     parser.add_argument('--save_dir', default='/home/jxf/code/Shapelet_GNN/input/graph_data', type=str)
     parser.add_argument('--percentile', default=10, type=float)
     args = parser.parse_args()

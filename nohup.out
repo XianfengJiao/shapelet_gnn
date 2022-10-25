@@ -1,0 +1,78 @@
+Traceback (most recent call last):
+  File "/home/jxf/code/Shapelet_GNN/main_motality.py", line 2, in <module>
+    import torch_geometric.transforms as T
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torch_geometric/__init__.py", line 4, in <module>
+    import torch_geometric.data
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torch_geometric/data/__init__.py", line 7, in <module>
+    from .lightning_datamodule import LightningDataset, LightningNodeData
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torch_geometric/data/lightning_datamodule.py", line 14, in <module>
+    from pytorch_lightning import LightningDataModule as PLLightningDataModule
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pytorch_lightning/__init__.py", line 30, in <module>
+    from pytorch_lightning.callbacks import Callback  # noqa: E402
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pytorch_lightning/callbacks/__init__.py", line 14, in <module>
+    from pytorch_lightning.callbacks.base import Callback
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pytorch_lightning/callbacks/base.py", line 25, in <module>
+    from pytorch_lightning.utilities.types import STEP_OUTPUT
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pytorch_lightning/utilities/types.py", line 26, in <module>
+    from torchmetrics import Metric
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torchmetrics/__init__.py", line 14, in <module>
+    from torchmetrics import functional  # noqa: E402
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torchmetrics/functional/__init__.py", line 14, in <module>
+    from torchmetrics.functional.audio.pit import permutation_invariant_training, pit, pit_permutate
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torchmetrics/functional/audio/__init__.py", line 14, in <module>
+    from torchmetrics.functional.audio.pit import permutation_invariant_training, pit, pit_permutate  # noqa: F401
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torchmetrics/functional/audio/pit.py", line 24, in <module>
+    from torchmetrics.utilities.imports import _SCIPY_AVAILABLE
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torchmetrics/utilities/imports.py", line 114, in <module>
+    _TRANSFORMERS_AUTO_AVAILABLE = _module_available("transformers.models.auto")
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/torchmetrics/utilities/imports.py", line 57, in _module_available
+    module = import_module(module_names[0])
+  File "/home/jxf/anaconda3/lib/python3.9/importlib/__init__.py", line 127, in import_module
+    return _bootstrap._gcd_import(name[level:], package, level)
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/transformers/__init__.py", line 30, in <module>
+    from . import dependency_versions_check
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/transformers/dependency_versions_check.py", line 17, in <module>
+    from .utils.versions import require_version, require_version_core
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/transformers/utils/__init__.py", line 33, in <module>
+    from .generic import (
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/transformers/utils/generic.py", line 27, in <module>
+    from .import_utils import is_flax_available, is_tf_available, is_torch_available, is_torch_fx_proxy
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/transformers/utils/import_utils.py", line 219, in <module>
+    _torchaudio_version = importlib_metadata.version("torchaudio")
+  File "/home/jxf/anaconda3/lib/python3.9/importlib/metadata.py", line 551, in version
+    return distribution(distribution_name).version
+  File "/home/jxf/anaconda3/lib/python3.9/importlib/metadata.py", line 524, in distribution
+    return Distribution.from_name(distribution_name)
+  File "/home/jxf/anaconda3/lib/python3.9/importlib/metadata.py", line 183, in from_name
+    dist = next(iter(dists), None)
+  File "/home/jxf/anaconda3/lib/python3.9/importlib/metadata.py", line 445, in search
+    for child in self.children():
+  File "/home/jxf/anaconda3/lib/python3.9/importlib/metadata.py", line 422, in children
+    return os.listdir(self.root or '')
+KeyboardInterrupt
+Traceback (most recent call last):
+  File "/home/jxf/code/Shapelet_GNN/main_motality.py", line 25, in <module>
+    from datasets import PatientDataset
+  File "/home/jxf/code/Shapelet_GNN/datasets/__init__.py", line 1, in <module>
+    from .RecordDataset import RecordDataset
+  File "/home/jxf/code/Shapelet_GNN/datasets/RecordDataset.py", line 5, in <module>
+    import pandas as pd
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pandas/__init__.py", line 50, in <module>
+    from pandas.core.api import (
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pandas/core/api.py", line 48, in <module>
+    from pandas.core.groupby import (
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pandas/core/groupby/__init__.py", line 1, in <module>
+    from pandas.core.groupby.generic import (
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pandas/core/groupby/generic.py", line 64, in <module>
+    from pandas.core.aggregation import (
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pandas/core/aggregation.py", line 33, in <module>
+    from pandas.core.indexes.api import Index
+  File "/home/jxf/anaconda3/lib/python3.9/site-packages/pandas/core/indexes/api.py", line 20, in <module>
+    from pandas.core.indexes.interval import IntervalIndex
+  File "<frozen importlib._bootstrap>", line 1007, in _find_and_load
+  File "<frozen importlib._bootstrap>", line 986, in _find_and_load_unlocked
+  File "<frozen importlib._bootstrap>", line 680, in _load_unlocked
+  File "<frozen importlib._bootstrap_external>", line 846, in exec_module
+  File "<frozen importlib._bootstrap_external>", line 941, in get_code
+  File "<frozen importlib._bootstrap_external>", line 1039, in get_data
+KeyboardInterrupt

@@ -122,7 +122,7 @@ class Attention(nn.Module):
         return o, a
 
 
-class ConvTransformer(pl.LightningModule):
+class ConvTransformer(nn.Module):
     def __init__(self, feature_embed_dim=4, num_channels=[4,8,16,32], attention_hidden_dim=32, kernel_size=2, keep_prob=1, nhead=4, num_layers=3):
         super().__init__()
         self.num_channels = num_channels
@@ -191,6 +191,7 @@ class ConvTransformer(pl.LightningModule):
         batch_size = input.size(0)
         key_padding_mask = self.gen_key_padding_mask(input.shape[:2], lens).type_as(input).type(torch.bool)
         input = self.feature_embed(input)
+        # TODO: 不应该给整个加 position embedding
         input = self.pos_encoder(input)
         cls_tokens = []
         attns = []
@@ -211,7 +212,7 @@ class ConvTransformer(pl.LightningModule):
         
         return cls_output, attns
 
-class Multi_ConvTransformer_grutoken(pl.LightningModule):
+class Multi_ConvTransformer_grutoken(nn.Module):
     def __init__(self, input_dim=17, output_dim=1, feature_embed_dim = 32, demo_dim = 4, demo_hidden_dim = 32, num_channels=[4,8,16,32], attention_hidden_dim=32, kernel_size=4, keep_prob=1, nhead=4, num_layers=3):
         super().__init__()
         # hyperparameters

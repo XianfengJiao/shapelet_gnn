@@ -285,6 +285,94 @@ class SingleAttention(nn.Module):
 
         return v, a
 
+class Attention(nn.Module):
+    def __init__(self, attention_input_dim, attention_hidden_dim, output_dim,  feature_dim, attention_type='add', dropout=None, attention_act='softmax'):
+        super(Attention, self).__init__()
+        
+        self.attention_type = attention_type
+        self.attention_hidden_dim = attention_hidden_dim
+        self.attention_input_dim = attention_input_dim
+        self.attention_act = attention_act
+        self.feature_dim = feature_dim
+
+
+        self.W_q = nn.Linear(attention_input_dim, attention_hidden_dim)
+        self.W_k = nn.Linear(attention_input_dim, attention_hidden_dim)
+        self.W_v = nn.Linear(attention_input_dim, attention_hidden_dim)
+        self.output = nn.Linear(attention_hidden_dim, output_dim)
+
+        self.W_out = nn.Linear(attention_hidden_dim, 1)
+
+        self.b_in = nn.Parameter(torch.zeros(1,))
+        self.b_out = nn.Parameter(torch.zeros(1,))
+
+        nn.init.kaiming_uniform_(self.W_q.weight, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.W_k.weight, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.W_v.weight, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.W_out.weight, a=math.sqrt(5))
+
+        self.Wh = nn.Parameter(torch.randn(2*attention_input_dim, attention_hidden_dim))
+        self.Wa = nn.Parameter(torch.randn(attention_hidden_dim, 1))
+        self.ba = nn.Parameter(torch.zeros(1,))
+        self.rate = nn.Parameter(torch.ones(self.feature_dim))
+        
+        nn.init.kaiming_uniform_(self.Wh, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.Wa, a=math.sqrt(5))
+        
+        self.dropout = nn.Dropout(p=dropout)
+        self.tanh = nn.Tanh()
+        self.softmax = nn.Softmax(dim=1)
+        self.sparsemax = Sparsemax()
+        self.sigmoid = nn.Sigmoid()
+    
+    def forward(self, query, input, time_mask=None, src_key_padding_mask=None):
+        batch_size, time_step, input_dim = input.size() # batch_size * input_dim + 1 * hidden_dim(i)
+        input_q = self.W_q(query) # b h
+        input_k = self.W_k(input)# b t h
+        input_v = self.W_v(input)# b t h
+
+        if self.attention_type == 'add': #B*T*I  @ H*I
+
+            q = torch.reshape(input_q, (batch_size, 1, self.attention_hidden_dim)) #B*1*H
+            h = q + input_k + self.b_in # b t h
+            h = self.tanh(h) #B*T*H
+            e = self.W_out(h) # b t 1
+            e = torch.reshape(e, (batch_size, time_step))# b t
+
+        elif self.attention_type == 'mul':
+            q = torch.reshape(input_q, (batch_size, self.attention_hidden_dim, 1)) #B*h 1
+            e = torch.matmul(input_k, q).squeeze(-1)#b t
+            if time_mask != None:
+                time_miss = torch.log(1 + (1 - self.sigmoid(e)) * (time_mask.squeeze()))
+                e = e - self.rate * time_miss
+
+            
+        elif self.attention_type == 'concat':
+            q = input_q.unsqueeze(1).repeat(1,time_step,1)# b t h
+            k = input_k
+            c = torch.cat((q, k), dim=-1) #B*T*2I
+            h = torch.matmul(c, self.Wh)
+            h = self.tanh(h)
+            e = torch.matmul(h, self.Wa) + self.ba #B*T*1
+            e = torch.reshape(e, (batch_size, time_step)) # b t 
+        
+        if src_key_padding_mask is not None:
+            e = e.masked_fill(src_key_padding_mask, value=torch.tensor(-1e9))
+        
+        if self.attention_act == 'sparsemax':
+            a = self.sparsemax(e) #B*T
+        else:
+            a = self.softmax(e) #B*T
+        
+        if self.dropout is not None:
+            a = self.dropout(a)
+        v = torch.matmul(a.unsqueeze(1), input_v).squeeze(1) #B*I
+        o = self.output(v)
+        return o, a
+
+
+
+
 class FinalAttentionQKV(nn.Module):
     def __init__(self, attention_input_dim, attention_hidden_dim, input_dim, attention_type='add', dropout=None, attention_act='softmax'):
         super(FinalAttentionQKV, self).__init__()

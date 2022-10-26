@@ -91,7 +91,10 @@ class Motality_Trainer(object):
             
             pred = self.model(x, lens, static)['output']
             loss = self.loss_fn(pred, y)
+            self.model.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(self.model.parameters(), 5)
             self.optimizer.step()
             if self.ddp:
                 self.dist.all_reduce(loss, op=self.dist.ReduceOp.SUM)
@@ -204,7 +207,6 @@ class Motality_Trainer(object):
         kernel_size = model.kernel_size
         conv_layer_num = len(model.num_channels)
         
-        
         selected_feature = list(range(len(all_x[0][0])))
         
         selected_x = []
@@ -213,18 +215,20 @@ class Motality_Trainer(object):
             selected_x.append([copy.deepcopy(np.array(xx)[:, fi]) for xx in all_x])
             selected_attn.append([copy.deepcopy(np.array(aa)[fi, :, :]) for aa in all_attn])
         
-        pool = Pool(node=len(selected_feature))
-        results = pool.map(self.gen_shapelet_for_feature, 
-                           selected_feature, 
-                           selected_x, 
-                           selected_attn, 
+        selected_feature = [13]
+        
+        pool = Pool(node=len(selected_feature)+1)
+        results = pool.map(self.gen_shapelet_for_feature,
+                           selected_feature,
+                           selected_x,
+                           selected_attn,
                            [all_pdid] * len(selected_feature), 
-                           [all_lens] * len(selected_feature), 
-                           [kernel_size] * len(selected_feature), 
-                           [conv_layer_num] * len(selected_feature), 
-                           [cluster_num] * len(selected_feature), 
-                           [threshold_rate] * len(selected_feature), 
-                           [copy.deepcopy(medical_idx)] * len(selected_feature), 
+                           [all_lens] * len(selected_feature),
+                           [kernel_size] * len(selected_feature),
+                           [conv_layer_num] * len(selected_feature),
+                           [cluster_num] * len(selected_feature),
+                           [threshold_rate] * len(selected_feature),
+                           [copy.deepcopy(medical_idx)] * len(selected_feature),
                            [save_path] * len(selected_feature)
                            )
         

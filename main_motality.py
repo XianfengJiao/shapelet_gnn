@@ -104,6 +104,7 @@ def main(args):
                                  cluster_num=args.cluster_num,
                                  threshold_rate=args.threshold_rate,
                                  medical_idx=['Cl','CO2CP','WBC','Hb','Urea','Ca','K','Na','Scr','P','Albumin','hs-CRP','Glucose','Appetite','Weight','SBP','DBP'], 
+                                #  medical_idx=['Scr'], 
                                  save_path=trainer.log_dir)
             continue
         

@@ -89,6 +89,7 @@ class Shapelet_Trainer(object):
             loss = self.loss_fn(pred, y)
             self.motality_model.zero_grad()
             self.graph_model.zero_grad()
+            self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
             loss_epoch += loss.item()

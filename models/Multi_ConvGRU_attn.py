@@ -129,7 +129,7 @@ class Multi_ConvGRU_attn(nn.Module):
         feature_dim = input.size(2)
         assert(feature_dim == self.input_dim) 
         
-        demo_main = self.tanh(self.demo_proj_main(demo_input)).unsqueeze(1)# b hidden_dim
+        demo_main = self.tanh(self.demo_proj_main(demo_input)).unsqueeze(1)# b 1 hidden_dim
         
         embeded_inputs = []
         attns = []
@@ -142,8 +142,8 @@ class Multi_ConvGRU_attn(nn.Module):
         embeded_inputs = torch.cat(embeded_inputs, dim=-1)
         combined_hidden = torch.cat((embeded_inputs, \
                                      demo_main.squeeze(1)),-1)#b n h
-        output = self.projector(combined_hidden)
-        output = self.predictor(self.relu(output))
+        combined_hidden = self.projector(combined_hidden)
+        output = self.predictor(self.relu(combined_hidden))
         output = self.sigmoid(output)
         
-        return {'output': output.squeeze(-1), 'attns': attns}
+        return {'output': output.squeeze(-1), 'attns': attns, 'emb': combined_hidden}

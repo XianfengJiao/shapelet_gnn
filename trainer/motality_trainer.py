@@ -12,6 +12,7 @@ import pickle as pkl
 import numpy as np
 from glob import glob
 import random
+import math
 import torch
 import time
 from utils.metric_utils import print_metrics_binary
@@ -31,6 +32,7 @@ class Motality_Trainer(object):
         model,
         save_path,
         monitor='auprc',
+        test_loader=None,
         lr=1e-3,
         early_stop=1e9,
         loss='bce',
@@ -39,6 +41,7 @@ class Motality_Trainer(object):
         ddp=False,
         local_rank=0,
         dist=None,
+        decov_w=1000
     ):
         self.device = device
         self.ddp = ddp
@@ -47,9 +50,11 @@ class Motality_Trainer(object):
         self.no_lift_count = 0
         self.train_loader = train_loader
         self.valid_loader = valid_loader
+        self.test_loader = test_loader
         self.monitor = monitor
         self.save_path = save_path
         self.loss_fn = self.configure_loss(loss)
+        self.decov_w = decov_w
         
         if self.ddp:
             self.model = model.to(local_rank)
@@ -84,13 +89,24 @@ class Motality_Trainer(object):
             self.train_loader, desc="Fold {}: Epoch {}/{}".format(self.fold, epoch, self.num_epochs), leave=False
         )
         loss_epoch = 0
+        decov_epoch = 0
         for x, y, static, lens, _ in train_iterator:
             x = x.to(self.device)
             y = y.to(self.device)
             static = static.to(self.device)
             
-            pred = self.model(x, lens, static)['output']
+            res = self.model(x, lens.cpu(), static)
+            pred = res['output']
+            
             loss = self.loss_fn(pred, y)
+            
+            # if 'decov_loss' in res:
+            #     base_m = math.floor(math.log(loss.item(), 10))
+            #     decov_m = math.floor(math.log(res['decov_loss'].item(), 10))
+            #     decov_loss = self.decov_w * res['decov_loss'] * 10 ** (base_m-decov_m)
+            #     loss += decov_loss
+            #     decov_epoch += decov_loss.item()
+            
             self.model.zero_grad()
             self.optimizer.zero_grad()
             loss.backward()
@@ -99,11 +115,14 @@ class Motality_Trainer(object):
             if self.ddp:
                 self.dist.all_reduce(loss, op=self.dist.ReduceOp.SUM)
                 loss /= self.dist.get_world_size()
-            loss_epoch += loss.item()
+            loss_epoch += loss.item()  
             
         loss_epoch /= len(self.train_loader)
+        decov_epoch /= len(self.train_loader)
         print(f"Fold {self.fold}: Epoch {epoch}:")
         print(f"Train Loss: {loss_epoch:.4f}")
+        print(f"Decov Loss: {decov_epoch:.4f}")
+        
         self.tensorwriter.add_scalar("train_loss/epoch", loss_epoch, epoch)
         
         if not self.ddp or self.dist.get_rank() == 0:
@@ -112,7 +131,10 @@ class Motality_Trainer(object):
             if eval_metric[self.monitor] > self.best_metric:
                 self.best_metric = eval_metric[self.monitor]
                 self.best_metric_model_path = os.path.join(self.save_path, 'best_model.pth')
-                torch.save(self.model.state_dict(), self.best_metric_model_path)
+                if self.ddp:
+                    torch.save(self.model.module.state_dict(), self.best_metric_model_path)
+                else:
+                    torch.save(self.model.state_dict(), self.best_metric_model_path)
                 self.metric_all = eval_metric
                 self.no_lift_count = 0
             else:
@@ -141,7 +163,7 @@ class Motality_Trainer(object):
                 y = y.to(self.device)
                 static = static.to(self.device)
                 
-                pred = self.model(x, lens, static)['output']
+                pred = self.model(x, lens.cpu(), static)['output']
                 
                 all_y.append(y)
                 all_pred.append(pred)
@@ -166,6 +188,134 @@ class Motality_Trainer(object):
         self.tensorwriter.add_scalar("eval_f1_score/epoch", metrics['f1_score'], epoch)
         
         return loss, metrics
+
+    def test(self):
+        self.model.eval()
+        test_iterator = tqdm(
+            self.test_loader, desc="Test", total=len(self.test_loader)
+        )
+        all_y = []
+        all_pred = []
+        with torch.no_grad():
+            for x, y, static, lens, _ in test_iterator:
+                x = x.to(self.device)
+                y = y.to(self.device)
+                static = static.to(self.device)
+                
+                pred = self.model(x, lens.cpu(), static)['output']
+                
+                all_y.append(y)
+                all_pred.append(pred)
+        
+        all_y = torch.cat(all_y, dim=0).squeeze()
+        all_pred = torch.cat(all_pred, dim=0).squeeze()
+        
+        loss = self.loss_fn(all_pred, all_y)
+        print(f"Test Loss: {loss:.4f}")
+        
+        all_y = all_y.cpu().detach().numpy().flatten()
+        all_pred = all_pred.cpu().detach().numpy().flatten()
+        metrics = print_metrics_binary(all_pred, all_y)
+        
+        # -----------------------------------------------------------------------------------------------------------------
+        print('#'*20,"starting Test Bootstrap...",'#'*20)
+        N = len(all_y)
+        N_idx = np.arange(N)
+        K = 1000
+
+        auroc = []
+        auprc = []
+        minpse = []
+        f1 = []
+        
+        for _ in tqdm(range(K), desc='Test Bootstrap'):
+            # import pdb;pdb.set_trace()
+            boot_idx = np.random.choice(N_idx, N, replace=True)
+            boot_true = all_y[boot_idx]
+            boot_pred = all_pred[boot_idx]
+            test_ret = print_metrics_binary(boot_pred, boot_true)
+            auroc.append(test_ret['auroc'])
+            auprc.append(test_ret['auprc'])
+            minpse.append(test_ret['minpse'])
+            f1.append(test_ret['f1_score'])
+        
+        print('auroc: %.4f(%.4f)'%(np.mean(auroc), np.std(auroc)))
+        print('auprc: %.4f(%.4f)'%(np.mean(auprc), np.std(auprc)))
+        print('minpse: %.4f(%.4f)'%(np.mean(minpse), np.std(minpse)))
+        print('f1 score: %.4f(%.4f)'%(np.mean(f1), np.std(f1)))
+    
+    def gen_frontend_emb(self, save_path, data_loader):
+        self.model.eval()
+        data_iterator = tqdm(
+            data_loader, desc="All Emb", total=len(data_loader)
+        )
+        
+        data_emb = self.get_emb(data_iterator, self.model)
+        os.makedirs(save_path, exist_ok=True)
+        pkl.dump(data_emb, open(os.path.join(save_path, 'emb.pkl'),'wb'))
+        
+        
+        
+    
+    def gen_frontend_emb(self, save_path):
+        os.makedirs(save_path, exist_ok=True)
+        self.model.eval()
+        
+        if self.test_loader is not None:
+            test_iterator = tqdm(
+                self.test_loader, desc="Test", total=len(self.test_loader)
+            )
+            test_emb = self.get_emb(test_iterator, self.model)
+            pkl.dump(test_emb, open(os.path.join(save_path, 'test_emb.pkl'),'wb'))
+            
+        valid_iterator = tqdm(
+            self.valid_loader, desc="Valid", total=len(self.valid_loader)
+        )
+        valid_emb, valid_y, valid_pred = self.get_emb(valid_iterator, self.model)
+        pkl.dump(valid_emb, open(os.path.join(save_path, 'valid_emb.pkl'),'wb'))
+        pkl.dump(valid_y, open(os.path.join(save_path, 'valid_y.pkl'),'wb'))
+        pkl.dump(valid_pred, open(os.path.join(save_path, 'valid_pred.pkl'),'wb'))
+        
+        train_iterator = tqdm(
+            self.train_loader, desc="Train", total=len(self.train_loader)
+        )
+        train_emb, train_y, train_pred = self.get_emb(train_iterator, self.model)
+        pkl.dump(train_emb, open(os.path.join(save_path, 'train_emb.pkl'),'wb'))
+        pkl.dump(train_y, open(os.path.join(save_path, 'train_y.pkl'),'wb'))
+        pkl.dump(train_pred, open(os.path.join(save_path, 'train_pred.pkl'),'wb'))
+        
+        
+    def get_emb(self, data_iterator, model):
+        all_emb = []
+        all_y = []
+        all_pred = []
+        with torch.no_grad():
+            for x, y, static, lens, _ in data_iterator:
+                x = x.to(self.device)
+                y = y.to(self.device)
+                static = static.to(self.device)
+
+                res = model(x, lens, static)
+                emb = res['emb']
+                pred = res['output']
+                
+                all_emb.append(emb)
+                all_y.append(y)
+                all_pred.append(pred)
+        
+        all_emb = torch.cat(all_emb, dim=0).squeeze()
+        all_y = torch.cat(all_y, dim=0).squeeze()
+        all_pred = torch.cat(all_pred, dim=0).squeeze()
+        
+        all_y = all_y.cpu().detach().numpy().flatten()
+        all_pred = all_pred.cpu().detach().numpy().flatten()
+        all_emb = all_emb.cpu().detach().numpy()
+        
+        print_metrics_binary(all_pred, all_y)
+        
+        
+        return all_emb, all_y, all_pred
+        
 
     def gen_shapelet(self, model, fold, cluster_num, threshold_rate, medical_idx, save_path):
         self.model.eval()

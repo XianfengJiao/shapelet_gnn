@@ -14,7 +14,7 @@ import random
 import torch
 from utils.metric_utils import print_metrics_binary
 
-class Shapelet_Trainer(object):
+class Shapelet_Combine_Trainer(object):
     def __init__(
         self,
         train_loader,
@@ -71,9 +71,10 @@ class Shapelet_Trainer(object):
             self.train_loader, desc="Fold {}: Epoch {}/{}".format(self.fold, epoch, self.num_epochs), leave=False
         )
         loss_epoch = 0
-        for x, y, lens, _ in train_iterator:
+        for x, y, lens, emb in train_iterator:
             x = x.to(self.device)
             y = y.to(self.device)
+            emb = emb.to(self.device)
             
             node_embeddings = self.graph_model(self.graph_data.x_dict, self.graph_data.edge_index_dict)
             
@@ -85,7 +86,7 @@ class Shapelet_Trainer(object):
                 f_converted = torch.einsum("sh,brs->brh", node_embeddings['f'+str(f_i)], x[:,f_i,:,:])
                 x_converted = torch.cat((x_converted, f_converted.unsqueeze(1)), dim=1)
             
-            pred = self.motality_model(x_converted, lens)
+            pred = self.motality_model(x_converted, lens, emb)
             loss = self.loss_fn(pred, y)
             self.motality_model.zero_grad()
             self.graph_model.zero_grad()
@@ -128,9 +129,10 @@ class Shapelet_Trainer(object):
         all_y = []
         all_pred = []
         with torch.no_grad():
-            for x, y, lens, _ in eval_iterator:
+            for x, y, lens, emb in eval_iterator:
                 x = x.to(self.device)
                 y = y.to(self.device)
+                emb = emb.to(self.device)
                 
                 node_embeddings = self.graph_model(self.graph_data.x_dict, self.graph_data.edge_index_dict)
                 
@@ -141,7 +143,7 @@ class Shapelet_Trainer(object):
                     f_converted = torch.einsum("sh,brs->brh", node_embeddings['f'+str(f_i)], x[:,f_i,:,:])
                     x_converted = torch.cat((x_converted, f_converted.unsqueeze(1)), dim=1)
                 
-                pred = self.motality_model(x_converted, lens)
+                pred = self.motality_model(x_converted, lens, emb)
 
                 all_y.append(y)
                 all_pred.append(pred)

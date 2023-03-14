@@ -67,7 +67,7 @@ def main(args):
             pdid_data=np.array(pdid)[train_set],
             lens_data=np.array(lens)[train_set] if args.lens_path != '' else None,
         )
-        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=train_dataset.collate_fn)
+        train_loader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=not args.only_emb, collate_fn=train_dataset.collate_fn)
         
         valid_dataset = PatientDataset(
             x_data=np.array(x, dtype=object)[val_set],
@@ -76,7 +76,7 @@ def main(args):
             pdid_data=np.array(pdid)[val_set],
             lens_data=np.array(lens)[val_set] if args.lens_path != '' else None,
         )
-        valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=True, collate_fn=valid_dataset.collate_fn)
+        valid_loader = DataLoader(valid_dataset, batch_size=args.batch_size, shuffle=not args.only_emb, collate_fn=valid_dataset.collate_fn)
         
         # ----------------- Instantiate Model --------------------------
         model = load_model(args.model_name, args)
@@ -93,7 +93,8 @@ def main(args):
             early_stop=args.early_stop,
             model=model,
             monitor=args.monitor,
-            save_path=os.path.join(args.ckpt_save_path, 'kfold-'+str(i))
+            save_path=os.path.join(args.ckpt_save_path, 'kfold-'+str(i)),
+            decov_w=args.decov_w
         )
         # ----------------- Generate Shapelet ------------------------
         if args.gen_shapelet:
@@ -107,6 +108,16 @@ def main(args):
                                 #  medical_idx=['Scr'], 
                                  save_path=trainer.log_dir)
             continue
+        
+        # ----------------- Generate Embedding ------------------------
+        if args.only_emb:
+            print('#'*20,"start generating embedding...",'#'*20)
+            pretrain_model_path_fold = os.path.join(args.pretrain_model_path, 'kfold-'+str(i), 'best_model.pth')
+            trainer.model.load_state_dict(torch.load(pretrain_model_path_fold))
+            trainer.gen_frontend_emb(save_path=os.path.join(trainer.log_dir, 'seed'+str(args.seed)+'_saved_emb'))
+            print('#'*20,"end generating embedding...",'#'*20)
+            continue
+        
         
         # ----------------- Start Training ------------------------
         print('#'*20,"kfold-{}: starting training...".format(i),'#'*20)
@@ -142,9 +153,10 @@ if __name__ == '__main__':
     parser.add_argument('--early_stop', default=15, type=int)
     parser.add_argument('--kernel_size', default=5, type=int)
     parser.add_argument('--input_dim', default=17, type=int)
-    parser.add_argument('--hidden_dim', default=32, type=int)
-    parser.add_argument('--model_name', default='Multi_ConvGRU_attn', type=str)
+    parser.add_argument('--hidden_dim', default=64, type=int)
+    parser.add_argument('--model_name', default='ConCare_mimiic', type=str)
     parser.add_argument('--monitor', default='auroc', type=str)
+    parser.add_argument("--only_emb", action='store_true', help="only to generate embedding.",)
     parser.add_argument("--pretrain_model_path", default='', type=str)
     parser.add_argument("--gen_shapelet", action='store_true', help="only to generate shapelet.",)
     parser.add_argument("--fix_fold",  default=-1, type=int)
@@ -161,6 +173,7 @@ if __name__ == '__main__':
     parser.add_argument('--layer_num', default=2, type=int)
     parser.add_argument('--keep_prob', default=0.5, type=float)
     parser.add_argument('--batch_size', default=16, type=int)
+    parser.add_argument('--decov_w', default=100, type=int)
     args = parser.parse_args()
     
     args.num_channels = [int(n) for n in args.num_channels.split(',')]

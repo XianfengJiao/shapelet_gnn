@@ -454,10 +454,6 @@ class FinalAttentionQKV(nn.Module):
         else:
             a = self.softmax(e) #B*T
         
-        
-        
-        
-        
         if self.dropout is not None:
             a = self.dropout(a)
         v = torch.matmul(a.unsqueeze(1), input_v).squeeze(1) #B*I
@@ -485,7 +481,7 @@ class PositionwiseFeedForward(nn.Module): # new added
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
-        return self.w_2(self.dropout(F.relu(self.w_1(x)))), None
+        return self.w_2(self.dropout(F.relu(self.w_1(x))))
 
 class PositionalEncoding(nn.Module): # new added / not use anymore
     "Implement the PE function."
@@ -569,9 +565,8 @@ class MultiHeadedAttention(nn.Module):
 #         for i in range(11 -1):
 #             Covs = cov(DeCov_contexts[i+1,:,:])
 #             DeCov_loss += 0.5 * (torch.norm(Covs, p = 'fro')**2 - torch.norm(torch.diag(Covs))**2 ) 
-        DeCov_loss = 0
 
-        return self.final_linear(x), DeCov_loss
+        return self.final_linear(x)
 
     
 def lNorm(x):
@@ -803,4 +798,4 @@ class SublayerConnection(nn.Module):
     def forward(self, x, sublayer):
         "Apply residual connection to any sublayer with the same size."
         returned_value = sublayer(self.norm(x))
-        return x + self.dropout(returned_value[0]) , returned_value[1]
+        return x + self.dropout(returned_value)

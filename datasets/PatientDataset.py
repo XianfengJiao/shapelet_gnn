@@ -25,6 +25,7 @@ class PatientDataset(Dataset):
             self.lens = [len(i) for i in self.x]
         else:
             self.lens = lens_data
+        
 
     def __len__(self):
         return len(self.x)
